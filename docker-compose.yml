@@ -1,0 +1,55 @@
+services:
+  # 동료 1명당 서비스 1개 추가
+  # AUTH KEY: 동료가 자기 Tailscale Admin Console에서 발급
+  #   -> Settings -> Keys -> Generate auth key
+  #   -> Reusable: OFF, Expiry: 90days
+
+  ts-colleague-a:
+    image: tailscale/tailscale:latest
+    container_name: ts-colleague-a
+    hostname: ddps-subnet-a          # 동료 tailnet에서 보이는 노드 이름
+    # network_mode: host는 macOS에서 Linux VM의 네트워크를 공유할 뿐,
+    # Mac 물리 NIC를 공유하지 않음 -> bridge 네트워크로도 충분
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY_A}   # .env 파일에서 주입
+      - TS_ROUTES=166.104.75.0/24
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true            # userspace 라우팅: 커널 tun 불필요
+      - TS_ACCEPT_DNS=false
+    volumes:
+      - ts-a-state:/var/lib/tailscale
+    restart: unless-stopped
+
+  ts-colleague-b:
+    image: tailscale/tailscale:latest
+    container_name: ts-colleague-b
+    hostname: ddps-subnet-b
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY_B}
+      - TS_ROUTES=166.104.75.0/24
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_ACCEPT_DNS=false
+    volumes:
+      - ts-b-state:/var/lib/tailscale
+    restart: unless-stopped
+
+  # 동료 추가 시 아래 블록 주석 해제하고 .env에 TS_AUTHKEY_C 추가
+  # ts-colleague-c:
+  #   image: tailscale/tailscale:latest
+  #   container_name: ts-colleague-c
+  #   hostname: ddps-subnet-c
+  #   environment:
+  #     - TS_AUTHKEY=${TS_AUTHKEY_C}
+  #     - TS_ROUTES=166.104.75.0/24
+  #     - TS_STATE_DIR=/var/lib/tailscale
+  #     - TS_USERSPACE=true
+  #     - TS_ACCEPT_DNS=false
+  #   volumes:
+  #     - ts-c-state:/var/lib/tailscale
+  #   restart: unless-stopped
+
+volumes:
+  ts-a-state:
+  ts-b-state:
+  # ts-c-state:
