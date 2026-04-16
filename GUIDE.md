@@ -223,3 +223,69 @@ for k,p in d.get('Peer',{}).items():
 # 3. 문제 시 컨테이너 재시작으로 즉시 복구
 docker compose restart ts-colleague-a
 ```
+
+---
+
+## Windows PC에서 운영할 때
+
+Mac mini 대신 Windows 호스트에서 굴릴 경우, `docker-compose.yml`은 그대로 쓰고 (`TS_USERSPACE=true` 유지 — Docker Desktop도 WSL2 VM 위라 동일한 이유), 호스트 측 자동화만 PowerShell로 대체합니다.
+
+### PowerShell 스크립트
+
+- `keepalive.ps1` — `keepalive.sh`의 Windows 버전
+- `update-tailscale.ps1` — `update-tailscale.sh`의 Windows 버전
+- `scripts/start.ps1` — Docker Desktop 구동 확인 후 `docker compose up -d`
+
+경로는 모두 `$PSScriptRoot` 기반이라 어디에 클론하든 동작합니다.
+
+### 실행 정책 & 줄바꿈
+
+```powershell
+# 스크립트 실행 허용 (현재 사용자만)
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+Git clone 시 .sh 파일이 CRLF로 변환되지 않도록 확인:
+
+```powershell
+git config --get core.autocrlf   # 'false' 또는 'input' 권장
+```
+
+### Docker Desktop 자동 시작
+
+Docker Desktop 설정 → General → **Start Docker Desktop when you sign in** 체크.
+`restart: unless-stopped` 덕분에 Docker가 뜨면 컨테이너도 자동 복구됩니다.
+
+재부팅 후 무인으로 올라와야 하면 해당 계정을 **자동 로그인**으로 설정해야 합니다 (Docker Desktop은 user session 필요).
+
+### 작업 스케줄러 (cron 대체)
+
+#### 이미지 자동 업데이트 (매일 05:00)
+
+```powershell
+$action  = New-ScheduledTaskAction -Execute 'powershell.exe' `
+  -Argument '-NoProfile -ExecutionPolicy Bypass -File C:\path\to\ts-subnet-router\update-tailscale.ps1'
+$trigger = New-ScheduledTaskTrigger -Daily -At 5:00AM
+Register-ScheduledTask -TaskName 'ts-subnet-update' -Action $action -Trigger $trigger `
+  -RunLevel Highest -Description 'Tailscale image update'
+```
+
+#### Keepalive (2분마다)
+
+```powershell
+$action  = New-ScheduledTaskAction -Execute 'powershell.exe' `
+  -Argument '-NoProfile -ExecutionPolicy Bypass -File C:\path\to\ts-subnet-router\keepalive.ps1'
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
+  -RepetitionInterval (New-TimeSpan -Minutes 2)
+Register-ScheduledTask -TaskName 'ts-subnet-keepalive' -Action $action -Trigger $trigger `
+  -Description 'Tailscale keepalive ping'
+```
+
+> Docker Desktop CLI는 로그인 세션에서만 접근 가능하므로, 작업은 **"Run only when user is logged on"** 으로 등록해야 합니다 (SYSTEM 계정 ✗).
+
+### 상태 확인
+
+```powershell
+Get-ScheduledTask -TaskName 'ts-subnet-*' | Get-ScheduledTaskInfo
+Get-Content .\update.log -Tail 20
+```
