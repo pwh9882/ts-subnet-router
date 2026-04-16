@@ -230,6 +230,8 @@ docker compose restart ts-colleague-a
 
 Mac mini 대신 Windows 호스트에서 굴릴 경우, `docker-compose.yml`은 그대로 쓰고 (`TS_USERSPACE=true` 유지 — Docker Desktop도 WSL2 VM 위라 동일한 이유), 호스트 측 자동화만 PowerShell로 대체합니다.
 
+레포 위치는 사용자 홈 아래 `~\development\ts-subnet-router` 기준입니다 (`C:\Users\<계정>\development\ts-subnet-router`).
+
 ### PowerShell 스크립트
 
 - `keepalive.ps1` — `keepalive.sh`의 Windows 버전
@@ -260,32 +262,23 @@ Docker Desktop 설정 → General → **Start Docker Desktop when you sign in** 
 
 ### 작업 스케줄러 (cron 대체)
 
-#### 이미지 자동 업데이트 (매일 05:00)
+`scripts/install-tasks.ps1` 한 번 실행으로 update(매일 05:00)와 keepalive(2분마다) 두 작업이 등록됩니다.
 
 ```powershell
-$action  = New-ScheduledTaskAction -Execute 'powershell.exe' `
-  -Argument '-NoProfile -ExecutionPolicy Bypass -File C:\path\to\ts-subnet-router\update-tailscale.ps1'
-$trigger = New-ScheduledTaskTrigger -Daily -At 5:00AM
-Register-ScheduledTask -TaskName 'ts-subnet-update' -Action $action -Trigger $trigger `
-  -RunLevel Highest -Description 'Tailscale image update'
+# 관리자 PowerShell에서
+cd $HOME\development\ts-subnet-router
+.\scripts\install-tasks.ps1
+
+# 제거
+.\scripts\install-tasks.ps1 -Remove
 ```
 
-#### Keepalive (2분마다)
-
-```powershell
-$action  = New-ScheduledTaskAction -Execute 'powershell.exe' `
-  -Argument '-NoProfile -ExecutionPolicy Bypass -File C:\path\to\ts-subnet-router\keepalive.ps1'
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
-  -RepetitionInterval (New-TimeSpan -Minutes 2)
-Register-ScheduledTask -TaskName 'ts-subnet-keepalive' -Action $action -Trigger $trigger `
-  -Description 'Tailscale keepalive ping'
-```
-
-> Docker Desktop CLI는 로그인 세션에서만 접근 가능하므로, 작업은 **"Run only when user is logged on"** 으로 등록해야 합니다 (SYSTEM 계정 ✗).
+현재 사용자 세션에서만 실행되도록(`RunLevel Limited` + `-User <현재계정>`) 등록됩니다. Docker Desktop CLI가 로그인 세션을 요구하기 때문이며, 그래서 **자동 로그인 설정이 선행되어야** 무인 복구가 완성됩니다.
 
 ### 상태 확인
 
 ```powershell
-Get-ScheduledTask -TaskName 'ts-subnet-*' | Get-ScheduledTaskInfo
+Get-ScheduledTask -TaskName 'ts-subnet-*' | Get-ScheduledTaskInfo |
+    Format-Table TaskName, LastRunTime, LastTaskResult, NextRunTime
 Get-Content .\update.log -Tail 20
 ```
