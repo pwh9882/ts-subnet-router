@@ -115,6 +115,31 @@ docker compose down
 docker compose up -d
 ```
 
+### Mac mini 재부팅 시 자동 시작
+
+macOS LaunchAgent로 Colima가 로그인 시 자동 시작되도록 등록되어 있습니다.
+
+```
+~/Library/LaunchAgents/com.colima.default.plist
+```
+
+Colima가 뜨면 `restart: unless-stopped` 설정에 의해 컨테이너도 자동으로 올라옵니다.
+
+```bash
+# LaunchAgent 상태 확인
+launchctl list | grep colima
+
+# 자동 시작 해제
+launchctl unload ~/Library/LaunchAgents/com.colima.default.plist
+
+# 자동 시작 재등록
+launchctl load ~/Library/LaunchAgents/com.colima.default.plist
+
+# 시작 로그 확인
+cat /tmp/colima.stdout.log
+cat /tmp/colima.stderr.log
+```
+
 ### 자동 이미지 업데이트 (cron)
 
 매일 새벽 5시에 `update-tailscale.sh`가 실행되어 최신 이미지가 있으면 pull & 컨테이너 재생성합니다.
