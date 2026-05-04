@@ -117,28 +117,29 @@ docker compose up -d
 
 ### Mac mini 재부팅 시 자동 시작
 
-macOS LaunchAgent로 Colima가 로그인 시 자동 시작되도록 등록되어 있습니다.
+`brew services`로 Colima가 로그인 시 자동 시작되도록 등록되어 있습니다.
 
 ```
-~/Library/LaunchAgents/com.colima.default.plist
+~/Library/LaunchAgents/homebrew.mxcl.colima.plist  (brew가 관리)
 ```
 
 Colima가 뜨면 `restart: unless-stopped` 설정에 의해 컨테이너도 자동으로 올라옵니다.
 
 ```bash
-# LaunchAgent 상태 확인
-launchctl list | grep colima
+# 서비스 상태 확인
+brew services list | grep colima
 
-# 자동 시작 해제
-launchctl unload ~/Library/LaunchAgents/com.colima.default.plist
-
-# 자동 시작 재등록
-launchctl load ~/Library/LaunchAgents/com.colima.default.plist
+# 자동 시작 해제 / 재등록
+brew services stop colima
+brew services start colima
 
 # 시작 로그 확인
-cat /tmp/colima.stdout.log
-cat /tmp/colima.stderr.log
+tail -f /opt/homebrew/var/log/colima.log
 ```
+
+> 주의: 직접 만든 `~/Library/LaunchAgents/com.colima.default.plist` 등을 추가로 두면
+> 두 agent가 동일한 lima 인스턴스 디스크를 동시에 잡으려다 `failed to run attach disk`
+> 오류로 둘 다 실패한다. brew 쪽만 활성 상태로 유지할 것.
 
 ### 자동 이미지 업데이트 (cron)
 
